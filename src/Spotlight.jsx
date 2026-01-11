@@ -1,53 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { useAuth } from './contexts/AuthContext'
+import { getRecentEmails, searchEmails } from './lib/gmail'
+import { supabase } from './lib/supabase'
 
-// Icons
-const SparkleIcon = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+const SparkleIcon = ({ size = 20, className = '' }) => (
+  <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/>
     <path d="M19 15l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5.5-2z" opacity="0.7"/>
     <path d="M5 17l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5z" opacity="0.5"/>
-  </svg>
-)
-
-const GoogleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24">
-    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-  </svg>
-)
-
-const MailIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="4" width="20" height="16" rx="2"/>
-    <path d="M22 7l-10 5L2 7"/>
-  </svg>
-)
-
-const SendIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-  </svg>
-)
-
-const SettingsIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3"/>
-    <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-  </svg>
-)
-
-const UserIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="8" r="4"/>
-    <path d="M20 21c0-4.4-3.6-8-8-8s-8 3.6-8 8"/>
-  </svg>
-)
-
-const ChevronIcon = ({ direction = 'right' }) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: direction === 'left' ? 'rotate(180deg)' : 'none' }}>
-    <path d="M9 18l6-6-6-6"/>
   </svg>
 )
 
@@ -57,602 +18,1388 @@ const CloseIcon = () => (
   </svg>
 )
 
-const MoonIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
   </svg>
 )
 
-const SunIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="5"/>
-    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+const EnvelopeSparkleIcon = ({ size = 48 }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+    {/* Envelope */}
+    <rect x="6" y="12" width="36" height="26" rx="3" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <path d="M6 15l18 12 18-12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Sparkle in top right */}
+    <path d="M38 6l1 3.5 3.5 1-3.5 1-1 3.5-1-3.5-3.5-1 3.5-1 1-3.5z" fill="currentColor" opacity="0.9"/>
+    <path d="M44 12l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5.5-1.5z" fill="currentColor" opacity="0.6"/>
+  </svg>
+)
+
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+  </svg>
+)
+
+const SendIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+  </svg>
+)
+
+const MenuIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="1"/>
+    <circle cx="19" cy="12" r="1"/>
+    <circle cx="5" cy="12" r="1"/>
+  </svg>
+)
+
+const UserIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M20 21a8 8 0 1 0-16 0"/>
+  </svg>
+)
+
+const SettingsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+  </svg>
+)
+
+const MoonIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+)
+
+const BellIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
+
+const ShieldIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
+
+const TrashIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+  </svg>
+)
+
+const InfoIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="16" x2="12" y2="12"/>
+    <line x1="12" y1="8" x2="12.01" y2="8"/>
+  </svg>
+)
+
+const FileTextIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+  </svg>
+)
+
+const LogOutIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" y1="12" x2="9" y2="12"/>
+  </svg>
+)
+
+const ChevronRightIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6"/>
+  </svg>
+)
+
+const PlusIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+)
+
+const HelpIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+)
+
+const DownloadIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+)
+
+const LinkIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </svg>
+)
+
+const ClockIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
   </svg>
 )
 
 const CrownIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z"/>
+    <path d="M3 20h18"/>
   </svg>
 )
 
-// View states
-const VIEWS = {
-  WELCOME: 'welcome',
-  AUTH: 'auth',
-  GMAIL_CONNECT: 'gmail_connect',
-  CHAT: 'chat',
-  SETTINGS: 'settings',
-  ACCOUNT: 'account',
-  UPGRADE: 'upgrade'
-}
+const UserXIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="8.5" cy="7" r="4"/>
+    <line x1="18" y1="8" x2="23" y2="13"/>
+    <line x1="23" y1="8" x2="18" y2="13"/>
+  </svg>
+)
 
-// Quick action presets
-const QUICK_ACTIONS = [
-  { label: 'Assignments', query: 'Find my recent assignment emails', icon: '📚' },
-  { label: 'Grades', query: 'Show emails about my grades', icon: '📊' },
-  { label: 'Professors', query: 'Emails from my professors', icon: '👨‍🏫' },
-  { label: 'Deadlines', query: 'Upcoming deadlines and due dates', icon: '⏰' }
+const features = [
+  "Ask questions in plain English",
+  "Summaries + action items",
+  "Private by design"
 ]
 
-// Mock email data
-const MOCK_EMAILS = [
+const greetings = [
+  "Hey, what do you need?",
+  "I'm here to help",
+  "What can I do for you?",
+  "Ready when you are",
+  "Just ask away",
+]
+
+const onboardingSlides = [
   {
-    id: 1,
-    sender: 'Prof. Sarah Chen',
-    email: 'schen@university.edu',
-    subject: 'CS 101 - Assignment 3 Due Date Extended',
-    preview: 'Hi class, I wanted to let you know that the deadline for Assignment 3 has been extended to...',
-    time: '2h ago',
-    isUnread: true
+    icon: '💬',
+    title: 'Ask in plain English',
+    description: 'Just type what you\'re looking for. "Show me emails about the project deadline" or "What did Sarah say about the budget?"'
   },
   {
-    id: 2,
-    sender: 'Academic Office',
-    email: 'registrar@university.edu',
-    subject: 'Spring 2025 Registration Now Open',
-    preview: 'Dear Student, Registration for Spring 2025 courses is now available. Please log in to your...',
-    time: '5h ago',
-    isUnread: true
+    icon: '📋',
+    title: 'Summaries & action items',
+    description: 'Get instant summaries of long email threads and automatically extract action items so nothing falls through the cracks.'
   },
   {
-    id: 3,
-    sender: 'Dr. Michael Torres',
-    email: 'mtorres@university.edu',
-    subject: 'Re: Office Hours Question',
-    preview: 'Thanks for reaching out! Yes, I can meet with you during my Thursday office hours at 2pm...',
-    time: 'Yesterday',
-    isUnread: false
+    icon: '🔒',
+    title: 'Private by design',
+    description: 'Your emails stay yours. We only access what you ask for, and we never store or sell your data.'
+  },
+  {
+    icon: '✨',
+    title: 'You\'re all set!',
+    description: 'Start by asking Spotlight anything about your inbox. We\'ll help you find what matters.'
   }
 ]
+
+const BackIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 12H5M12 19l-7-7 7-7"/>
+  </svg>
+)
+
+const TermsContent = ({ darkMode }) => (
+  <div className={`space-y-6 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} leading-relaxed`}>
+    <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last updated: January 2026</p>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>1. Acceptance of Terms</h3>
+      <p>By accessing or using Spotlight ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service. We reserve the right to modify these terms at any time, and your continued use of the Service constitutes acceptance of any changes.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>2. Description of Service</h3>
+      <p>Spotlight is an AI-powered email assistant that helps you search, summarize, and manage your Gmail inbox. The Service requires access to your Google account and Gmail data to function. We use artificial intelligence to process your queries and provide relevant responses based on your email content.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>3. User Accounts & Authentication</h3>
+      <p>To use Spotlight, you must authenticate via Google OAuth. You are responsible for maintaining the confidentiality of your account and for all activities that occur under your account. You must be at least 18 years old or have parental consent to use this Service. You agree to notify us immediately of any unauthorized use of your account.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>4. Acceptable Use</h3>
+      <p>You agree not to:</p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li>Use the Service for any illegal or unauthorized purpose</li>
+        <li>Attempt to gain unauthorized access to our systems or other users' accounts</li>
+        <li>Interfere with or disrupt the Service or servers</li>
+        <li>Reverse engineer, decompile, or disassemble any part of the Service</li>
+        <li>Use the Service to send spam, phishing, or malicious content</li>
+        <li>Violate any applicable laws or regulations</li>
+        <li>Impersonate any person or entity</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>5. Intellectual Property</h3>
+      <p>The Service, including all content, features, and functionality, is owned by Spotlight and is protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, or create derivative works based on the Service without our express written permission.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>6. Third-Party Services</h3>
+      <p>Spotlight integrates with third-party services including Google (Gmail API) and OpenAI. Your use of these services is subject to their respective terms of service and privacy policies. We are not responsible for the practices of these third parties.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>7. Disclaimer of Warranties</h3>
+      <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE. WE MAKE NO WARRANTIES REGARDING THE ACCURACY OR RELIABILITY OF ANY INFORMATION OBTAINED THROUGH THE SERVICE.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>8. Limitation of Liability</h3>
+      <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, SPOTLIGHT SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, OR GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICE. OUR TOTAL LIABILITY SHALL NOT EXCEED THE AMOUNT YOU PAID US IN THE PAST TWELVE MONTHS, IF ANY.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>9. Indemnification</h3>
+      <p>You agree to indemnify and hold harmless Spotlight and its officers, directors, employees, and agents from any claims, damages, losses, or expenses (including reasonable attorneys' fees) arising from your use of the Service or violation of these Terms.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>10. Termination</h3>
+      <p>We may terminate or suspend your access to the Service at any time, without prior notice, for any reason, including if you breach these Terms. Upon termination, your right to use the Service will immediately cease. You may also terminate your account at any time by disconnecting your Google account.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>11. Governing Law</h3>
+      <p>These Terms shall be governed by and construed in accordance with the laws of the United States, without regard to its conflict of law provisions. Any disputes arising under these Terms shall be resolved in the courts located in the United States.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>12. Contact</h3>
+      <p>If you have any questions about these Terms, please contact us at support@spotlight.app</p>
+    </section>
+  </div>
+)
+
+const PrivacyContent = ({ darkMode }) => (
+  <div className={`space-y-6 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} leading-relaxed`}>
+    <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Last updated: January 2026</p>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>1. Introduction</h3>
+      <p>This Privacy Policy explains how Spotlight ("we", "us", or "our") collects, uses, and protects your personal information when you use our email assistant service. We are committed to protecting your privacy and handling your data responsibly.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>2. Information We Collect</h3>
+      <p className="font-medium text-gray-700 mt-3">Account Information:</p>
+      <ul className="list-disc pl-5 mt-1 space-y-1">
+        <li>Email address (from Google OAuth)</li>
+        <li>Name and profile picture (from Google)</li>
+        <li>Authentication tokens</li>
+      </ul>
+
+      <p className="font-medium text-gray-700 mt-3">Email Data:</p>
+      <ul className="list-disc pl-5 mt-1 space-y-1">
+        <li>Email content, metadata, and attachments that you request us to process</li>
+        <li>Email headers (sender, recipient, subject, date)</li>
+        <li>Search queries you make within the Service</li>
+      </ul>
+
+      <p className="font-medium text-gray-700 mt-3">Usage Information:</p>
+      <ul className="list-disc pl-5 mt-1 space-y-1">
+        <li>Log data (IP address, browser type, access times)</li>
+        <li>Device information</li>
+        <li>Interactions with the Service</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>3. How We Use Your Information</h3>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>To provide and maintain the Service</li>
+        <li>To process your email queries and generate AI responses</li>
+        <li>To authenticate your identity</li>
+        <li>To improve and optimize the Service</li>
+        <li>To communicate with you about the Service</li>
+        <li>To detect and prevent fraud or abuse</li>
+        <li>To comply with legal obligations</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>4. Data Processing & AI</h3>
+      <p>When you ask questions about your emails, we temporarily process your email content to generate responses. This processing involves:</p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li>Fetching relevant emails from your Gmail account via the Gmail API</li>
+        <li>Sending email content to our AI provider (OpenAI) for analysis</li>
+        <li>Email content is processed in real-time and is not permanently stored on our servers</li>
+        <li>AI responses are generated based on your specific queries</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>5. Data Sharing & Third Parties</h3>
+      <p>We may share your information with:</p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li><strong>Google:</strong> We use Google OAuth for authentication and the Gmail API to access your emails</li>
+        <li><strong>OpenAI:</strong> Email content is sent to OpenAI's API to generate AI responses</li>
+        <li><strong>Supabase:</strong> Our backend infrastructure provider for authentication and data storage</li>
+        <li><strong>Legal Requirements:</strong> We may disclose information if required by law or to protect our rights</li>
+      </ul>
+      <p className="mt-2">We do not sell your personal information to third parties.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>6. Data Retention</h3>
+      <p>We retain your information only as long as necessary to provide the Service:</p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li>Account information is retained while your account is active</li>
+        <li>Email content is processed in real-time and not permanently stored</li>
+        <li>Chat history may be temporarily cached for session continuity</li>
+        <li>You can request deletion of your data at any time</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>7. Data Security</h3>
+      <p>We implement appropriate security measures to protect your information:</p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li>Encryption in transit (HTTPS/TLS)</li>
+        <li>Secure OAuth 2.0 authentication</li>
+        <li>Access controls and authentication requirements</li>
+        <li>Regular security assessments</li>
+      </ul>
+      <p className="mt-2">However, no method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>8. Your Rights</h3>
+      <p>You have the right to:</p>
+      <ul className="list-disc pl-5 mt-2 space-y-1">
+        <li><strong>Access:</strong> Request a copy of your personal data</li>
+        <li><strong>Correction:</strong> Request correction of inaccurate data</li>
+        <li><strong>Deletion:</strong> Request deletion of your data</li>
+        <li><strong>Portability:</strong> Request transfer of your data</li>
+        <li><strong>Objection:</strong> Object to certain processing of your data</li>
+        <li><strong>Revoke Access:</strong> Disconnect your Google account at any time</li>
+      </ul>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>9. Google API Services User Data Policy</h3>
+      <p>Spotlight's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-violet-500 hover:underline" target="_blank" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements. We only request access to the Gmail data necessary to provide the Service, and we do not use this data for advertising purposes.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>10. Children's Privacy</h3>
+      <p>The Service is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If we become aware that we have collected data from a child under 13, we will take steps to delete that information.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>11. International Data Transfers</h3>
+      <p>Your information may be transferred to and processed in countries other than your own. By using the Service, you consent to such transfers. We ensure appropriate safeguards are in place for international data transfers.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>12. Changes to This Policy</h3>
+      <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last updated" date. Your continued use of the Service after changes constitutes acceptance of the updated policy.</p>
+    </section>
+
+    <section>
+      <h3 className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'} mb-2`}>13. Contact Us</h3>
+      <p>If you have questions about this Privacy Policy or our data practices, please contact us at:</p>
+      <p className="mt-2">Email: privacy@spotlight.app</p>
+    </section>
+  </div>
+)
 
 export default function Spotlight() {
   const [isOpen, setIsOpen] = useState(false)
+  const [currentView, setCurrentView] = useState('welcome') // 'welcome' | 'main' | 'onboarding' | 'authenticated'
+  const [legalView, setLegalView] = useState(null) // 'terms' | 'privacy' | null
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [onboardingStep, setOnboardingStep] = useState(0)
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: "How can I help?" }
+  ])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [emailsLoaded, setEmailsLoaded] = useState(false)
+  const [cachedEmails, setCachedEmails] = useState([])
+  const [greeting, setGreeting] = useState(() => greetings[Math.floor(Math.random() * greetings.length)])
+  const [showSettings, setShowSettings] = useState(false)
+  const [settingsView, setSettingsView] = useState(null) // null | 'account'
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const [legalFromSettings, setLegalFromSettings] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
-  const [view, setView] = useState(VIEWS.WELCOME)
-  const [user, setUser] = useState(null)
-  const [messages, setMessages] = useState([])
-  const [inputValue, setInputValue] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [queriesUsed, setQueriesUsed] = useState(7)
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const chatEndRef = useRef(null)
-  const inputRef = useRef(null)
+  const messagesEndRef = useRef(null)
 
-  const maxQueries = user?.isPro ? 60 : 15
-  const queryPercentage = (queriesUsed / maxQueries) * 100
+  const { user, signIn, signUp, signInWithGoogle, signOut, getProviderToken } = useAuth()
 
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Change greeting when Spotlight opens
   useEffect(() => {
-    if (view === VIEWS.CHAT && inputRef.current) {
-      inputRef.current.focus()
+    if (isOpen) {
+      setGreeting(greetings[Math.floor(Math.random() * greetings.length)])
     }
-  }, [view])
+  }, [isOpen])
 
-  const handleGoogleSignIn = () => {
-    setView(VIEWS.GMAIL_CONNECT)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    const { error } = isSignUp
+      ? await signUp(email, password)
+      : await signIn(email, password)
+
+    if (error) {
+      setError(error.message)
+    } else if (isSignUp) {
+      // New user - show onboarding
+      setOnboardingStep(0)
+      setCurrentView('onboarding')
+    }
+    setLoading(false)
   }
 
-  const handleGmailConnect = () => {
-    setUser({
-      name: 'Alex Johnson',
-      email: 'alex.johnson@university.edu',
-      avatar: null,
-      isPro: false
-    })
-    setView(VIEWS.CHAT)
+  const handleGoogleSignIn = async () => {
+    setError('')
+    const { error } = await signInWithGoogle()
+    if (error) {
+      setError(error.message)
+    }
   }
 
-  const handleSendMessage = (text = inputValue) => {
-    if (!text.trim() || isLoading) return
-    if (queriesUsed >= maxQueries) {
-      setShowUpgradeModal(true)
-      return
+  const handleSignOut = async () => {
+    await signOut()
+    setCurrentView('welcome')
+    setEmail('')
+    setPassword('')
+    setMessages([
+      { role: 'assistant', content: "How can I help?" }
+    ])
+  }
+
+  const handleExportData = () => {
+    const exportData = {
+      account: {
+        email: user?.email,
+        name: user?.user_metadata?.full_name,
+        created_at: user?.created_at,
+        last_sign_in: user?.last_sign_in_at,
+      },
+      exported_at: new Date().toISOString(),
     }
 
-    const userMessage = { type: 'user', text: text.trim() }
-    setMessages(prev => [...prev, userMessage])
-    setInputValue('')
-    setIsLoading(true)
-    setQueriesUsed(prev => prev + 1)
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `spotlight-data-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = {
-        type: 'assistant',
-        text: `I found ${MOCK_EMAILS.length} emails matching your search.`,
-        emails: MOCK_EMAILS
+  const handleDeleteAccount = async () => {
+    try {
+      // Sign out first
+      await signOut()
+      // Reset all state
+      setCurrentView('welcome')
+      setShowSettings(false)
+      setSettingsView(null)
+      setShowDeleteConfirm(false)
+      setMessages([{ role: 'assistant', content: "How can I help?" }])
+      // Note: Full account deletion would require a server-side function
+      // For now, this signs out the user
+    } catch (error) {
+      console.error('Error deleting account:', error)
+    }
+  }
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault()
+    if (!chatInput.trim() || chatLoading) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setChatLoading(true)
+
+    try {
+      const providerToken = getProviderToken()
+
+      // Check if we have Gmail access
+      if (!providerToken) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: "I don't have access to your emails yet. Please sign out and sign back in with Google to grant Gmail permissions."
+        }])
+        setChatLoading(false)
+        return
       }
-      setMessages(prev => [...prev, aiResponse])
-      setIsLoading(false)
-    }, 1500)
-  }
 
-  const handleQuickAction = (action) => {
-    handleSendMessage(action.query)
-  }
+      let emails = []
 
-  const handleUpgrade = () => {
-    setUser(prev => ({ ...prev, isPro: true }))
-    setShowUpgradeModal(false)
-  }
+      // Check if user is asking about a specific person or topic
+      const fromMatch = userMessage.match(/from\s+([a-zA-Z0-9@._-]+)/i)
+      const aboutMatch = userMessage.match(/about\s+["']?([^"'?]+)["']?/i)
 
-  // Theme classes
-  const theme = {
-    bg: darkMode ? 'bg-gray-900/95' : 'bg-white/90',
-    bgSolid: darkMode ? 'bg-gray-900' : 'bg-white',
-    bgSecondary: darkMode ? 'bg-gray-800/50' : 'bg-gray-50',
-    border: darkMode ? 'border-gray-700/50' : 'border-gray-200/50',
-    text: darkMode ? 'text-gray-100' : 'text-gray-800',
-    textSecondary: darkMode ? 'text-gray-400' : 'text-gray-500',
-    textMuted: darkMode ? 'text-gray-500' : 'text-gray-400',
-    gradient: darkMode
-      ? 'from-purple-600 to-indigo-700'
-      : 'from-orange-400 to-amber-500',
-    gradientAlt: darkMode
-      ? 'from-indigo-500 to-purple-600'
-      : 'from-sky-400 to-blue-500',
-    input: darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200',
-    hover: darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
-  }
+      try {
+        if (fromMatch) {
+          // Search for emails from a specific sender
+          const searchQuery = `from:${fromMatch[1]}`
+          emails = await searchEmails(providerToken, searchQuery, 20)
+        } else if (aboutMatch) {
+          // Search for emails about a topic
+          emails = await searchEmails(providerToken, aboutMatch[1].trim(), 20)
+        } else {
+          // Use cached recent emails or fetch them
+          if (!emailsLoaded) {
+            emails = await getRecentEmails(providerToken, 50)
+            setCachedEmails(emails)
+            setEmailsLoaded(true)
+          } else {
+            emails = cachedEmails
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch emails:', err)
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: "I had trouble accessing your emails. The Gmail permission might have expired. Try signing out and back in with Google."
+        }])
+        setChatLoading(false)
+        return
+      }
 
-  // Welcome View
-  const WelcomeView = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div
-        className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white mb-6 shadow-lg animate-float`}
-      >
-        <SparkleIcon size={28} />
-      </div>
-      <h2 className={`text-xl font-semibold ${theme.text} mb-2 opacity-0 animate-fade-up animation-delay-100`}>
-        Welcome to Spotlight
-      </h2>
-      <p className={`text-sm ${theme.textSecondary} text-center mb-8 opacity-0 animate-fade-up animation-delay-200`}>
-        AI-powered search for your school emails
-      </p>
-      <button
-        onClick={() => setView(VIEWS.AUTH)}
-        className={`px-6 py-3 rounded-xl bg-gradient-to-r ${theme.gradient} text-white font-medium text-sm shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 opacity-0 animate-fade-up animation-delay-300`}
-      >
-        Get Started
-      </button>
-    </div>
-  )
+      // Call the AI edge function
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          message: userMessage,
+          emails: emails.slice(0, 25), // Send top 25 emails for context
+        },
+      })
 
-  // Auth View
-  const AuthView = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div
-        className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white mb-6 shadow-lg`}
-      >
-        <SparkleIcon size={24} />
-      </div>
-      <h2 className={`text-lg font-semibold ${theme.text} mb-2`}>Sign in to continue</h2>
-      <p className={`text-sm ${theme.textSecondary} text-center mb-6`}>
-        Use your school Google account
-      </p>
-      <button
-        onClick={handleGoogleSignIn}
-        className={`flex items-center gap-3 px-5 py-3 rounded-xl ${theme.bgSecondary} border ${theme.border} ${theme.text} font-medium text-sm hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]`}
-      >
-        <GoogleIcon />
-        Continue with Google
-      </button>
-    </div>
-  )
+      if (error) {
+        throw error
+      }
 
-  // Gmail Connect View
-  const GmailConnectView = () => (
-    <div className="flex-1 flex flex-col items-center justify-center p-8">
-      <div className={`w-14 h-14 rounded-2xl ${theme.bgSecondary} flex items-center justify-center mb-6 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`}>
-        <MailIcon />
-      </div>
-      <h2 className={`text-lg font-semibold ${theme.text} mb-2`}>Connect Gmail</h2>
-      <p className={`text-sm ${theme.textSecondary} text-center mb-6 max-w-[260px]`}>
-        Allow Spotlight to search your emails securely
-      </p>
-      <div className={`w-full max-w-[260px] rounded-xl ${theme.bgSecondary} p-4 mb-6`}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          <span className={`text-xs ${theme.textSecondary}`}>Read-only access</span>
-        </div>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          <span className={`text-xs ${theme.textSecondary}`}>End-to-end encrypted</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          <span className={`text-xs ${theme.textSecondary}`}>Revoke anytime</span>
-        </div>
-      </div>
-      <button
-        onClick={handleGmailConnect}
-        className={`px-6 py-3 rounded-xl bg-gradient-to-r ${theme.gradientAlt} text-white font-medium text-sm shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95`}
-      >
-        Connect Gmail
-      </button>
-    </div>
-  )
-
-  // Query Limit Bar
-  const QueryLimitBar = () => (
-    <button
-      onClick={() => !user?.isPro && setShowUpgradeModal(true)}
-      className={`mx-4 mb-3 p-3 rounded-xl ${theme.bgSecondary} ${!user?.isPro ? 'cursor-pointer hover:opacity-90' : 'cursor-default'} transition-opacity`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className={`text-xs font-medium ${theme.textSecondary}`}>
-          {user?.isPro ? 'Pro Plan' : 'Free Plan'}
-        </span>
-        <span className={`text-xs ${theme.textMuted}`}>
-          {queriesUsed}/{maxQueries} queries
-        </span>
-      </div>
-      <div className={`h-1.5 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} overflow-hidden`}>
-        <div
-          className={`h-full rounded-full bg-gradient-to-r ${queryPercentage > 80 ? 'from-red-400 to-red-500' : theme.gradient} transition-all duration-500`}
-          style={{ width: `${queryPercentage}%` }}
-        />
-      </div>
-    </button>
-  )
-
-  // Chat View
-  const ChatView = () => (
-    <div className="flex-1 flex flex-col min-h-0">
-      <QueryLimitBar />
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white mb-4 opacity-50`}>
-              <SparkleIcon size={20} />
-            </div>
-            <p className={`text-sm ${theme.textSecondary} text-center mb-6`}>
-              Ask me to find any email
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center max-w-[300px]">
-              {QUICK_ACTIONS.map((action, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleQuickAction(action)}
-                  className={`px-3 py-2 rounded-lg ${theme.bgSecondary} ${theme.text} text-xs font-medium ${theme.hover} transition-colors flex items-center gap-1.5`}
-                >
-                  <span>{action.icon}</span>
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 pt-2">
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] ${msg.type === 'user'
-                  ? `bg-gradient-to-r ${theme.gradient} text-white rounded-2xl rounded-br-md px-4 py-2.5`
-                  : ''}`}
-                >
-                  {msg.type === 'user' ? (
-                    <p className="text-sm">{msg.text}</p>
-                  ) : (
-                    <div>
-                      <p className={`text-sm ${theme.text} mb-3`}>{msg.text}</p>
-                      {msg.emails && (
-                        <div className="space-y-2">
-                          {msg.emails.map(email => (
-                            <EmailCard key={email.id} email={email} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl ${theme.bgSecondary}`}>
-                  <div className="flex gap-1">
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${theme.gradient} animate-pulse-soft`}></div>
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${theme.gradient} animate-pulse-soft animation-delay-100`}></div>
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${theme.gradient} animate-pulse-soft animation-delay-200`}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-        )}
-      </div>
-
-      {/* Input */}
-      <div className={`p-4 border-t ${theme.border}`}>
-        <div className={`flex items-center gap-2 p-2 rounded-xl ${theme.input} border`}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Search your emails..."
-            className={`flex-1 bg-transparent outline-none text-sm ${theme.text} placeholder:${theme.textMuted} px-2`}
-          />
-          <button
-            onClick={() => handleSendMessage()}
-            disabled={!inputValue.trim() || isLoading}
-            className={`p-2 rounded-lg bg-gradient-to-r ${theme.gradient} text-white disabled:opacity-50 disabled:cursor-not-allowed transition-opacity`}
-          >
-            <SendIcon />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-
-  // Email Card
-  const EmailCard = ({ email }) => (
-    <div className={`p-3 rounded-xl ${theme.bgSecondary} border ${theme.border} cursor-pointer ${theme.hover} transition-colors`}>
-      <div className="flex items-start gap-3">
-        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${theme.gradientAlt} flex items-center justify-center text-white text-xs font-medium shrink-0`}>
-          {email.sender.split(' ').map(n => n[0]).join('').slice(0, 2)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-0.5">
-            <span className={`text-sm font-medium ${theme.text} truncate`}>{email.sender}</span>
-            <span className={`text-[10px] ${theme.textMuted} shrink-0`}>{email.time}</span>
-          </div>
-          <p className={`text-sm ${email.isUnread ? theme.text : theme.textSecondary} font-medium truncate mb-0.5`}>
-            {email.subject}
-          </p>
-          <p className={`text-xs ${theme.textMuted} line-clamp-2`}>{email.preview}</p>
-        </div>
-        {email.isUnread && (
-          <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${theme.gradient} shrink-0 mt-1`}></div>
-        )}
-      </div>
-    </div>
-  )
-
-  // Settings View
-  const SettingsView = () => (
-    <div className="flex-1 overflow-y-auto p-4">
-      <button
-        onClick={() => setView(VIEWS.CHAT)}
-        className={`flex items-center gap-1 ${theme.textSecondary} text-sm mb-4 ${theme.hover} rounded-lg px-2 py-1 -ml-2`}
-      >
-        <ChevronIcon direction="left" />
-        Back
-      </button>
-      <h2 className={`text-lg font-semibold ${theme.text} mb-4`}>Settings</h2>
-
-      <div className="space-y-2">
-        <div className={`flex items-center justify-between p-4 rounded-xl ${theme.bgSecondary}`}>
-          <div className="flex items-center gap-3">
-            {darkMode ? <MoonIcon /> : <SunIcon />}
-            <span className={`text-sm ${theme.text}`}>Dark Mode</span>
-          </div>
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className={`w-11 h-6 rounded-full transition-colors ${darkMode ? `bg-gradient-to-r ${theme.gradient}` : 'bg-gray-300'} relative`}
-          >
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-1'}`}></div>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-
-  // Account View
-  const AccountView = () => (
-    <div className="flex-1 overflow-y-auto p-4">
-      <button
-        onClick={() => setView(VIEWS.CHAT)}
-        className={`flex items-center gap-1 ${theme.textSecondary} text-sm mb-4 ${theme.hover} rounded-lg px-2 py-1 -ml-2`}
-      >
-        <ChevronIcon direction="left" />
-        Back
-      </button>
-
-      {/* User Info */}
-      <div className={`flex items-center gap-3 p-4 rounded-xl ${theme.bgSecondary} mb-4`}>
-        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white font-medium`}>
-          {user?.name?.split(' ').map(n => n[0]).join('')}
-        </div>
-        <div className="flex-1">
-          <h3 className={`font-semibold ${theme.text}`}>{user?.name}</h3>
-          <p className={`text-xs ${theme.textMuted}`}>{user?.email}</p>
-        </div>
-        {user?.isPro && (
-          <div className={`px-2 py-1 rounded-full bg-gradient-to-r ${theme.gradient} text-white text-[10px] font-bold flex items-center gap-1`}>
-            <CrownIcon />
-            PRO
-          </div>
-        )}
-      </div>
-
-      {/* Stats */}
-      <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wide mb-2`}>Usage This Month</h4>
-      <div className={`grid grid-cols-2 gap-2 mb-4`}>
-        <div className={`p-4 rounded-xl ${theme.bgSecondary}`}>
-          <p className={`text-2xl font-bold ${theme.text}`}>{queriesUsed}</p>
-          <p className={`text-xs ${theme.textMuted}`}>Queries used</p>
-        </div>
-        <div className={`p-4 rounded-xl ${theme.bgSecondary}`}>
-          <p className={`text-2xl font-bold ${theme.text}`}>{maxQueries - queriesUsed}</p>
-          <p className={`text-xs ${theme.textMuted}`}>Remaining</p>
-        </div>
-      </div>
-
-      {/* Plan */}
-      <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wide mb-2`}>Current Plan</h4>
-      <div className={`p-4 rounded-xl ${theme.bgSecondary} mb-4`}>
-        <div className="flex items-center justify-between mb-2">
-          <span className={`font-semibold ${theme.text}`}>{user?.isPro ? 'Pro' : 'Free'}</span>
-          <span className={`text-sm ${theme.textSecondary}`}>{user?.isPro ? '$5/mo' : '$0/mo'}</span>
-        </div>
-        <p className={`text-xs ${theme.textMuted}`}>
-          {user?.isPro ? '60 queries per month' : '15 queries per month'}
-        </p>
-      </div>
-
-      {!user?.isPro && (
-        <button
-          onClick={() => setShowUpgradeModal(true)}
-          className={`w-full py-3 rounded-xl bg-gradient-to-r ${theme.gradient} text-white font-medium text-sm shadow-lg hover:shadow-xl transition-all`}
-        >
-          Upgrade to Pro
-        </button>
-      )}
-    </div>
-  )
-
-  // Upgrade Modal
-  const UpgradeModal = () => (
-    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className={`w-full max-w-[320px] ${theme.bgSolid} rounded-2xl p-6 shadow-2xl`}>
-        <div className="flex items-center justify-between mb-4">
-          <div className={`px-2 py-1 rounded-full bg-gradient-to-r ${theme.gradient} text-white text-xs font-bold flex items-center gap-1`}>
-            <CrownIcon />
-            PRO
-          </div>
-          <button onClick={() => setShowUpgradeModal(false)} className={theme.textMuted}>
-            <CloseIcon />
-          </button>
-        </div>
-
-        <h3 className={`text-xl font-bold ${theme.text} mb-2`}>Upgrade to Pro</h3>
-        <p className={`text-sm ${theme.textSecondary} mb-4`}>
-          Get 4x more queries and unlock your full potential.
-        </p>
-
-        <div className={`p-4 rounded-xl ${theme.bgSecondary} mb-4`}>
-          <div className="flex items-baseline gap-1 mb-3">
-            <span className={`text-3xl font-bold ${theme.text}`}>$5</span>
-            <span className={`text-sm ${theme.textMuted}`}>/month</span>
-          </div>
-          <ul className="space-y-2">
-            <li className={`flex items-center gap-2 text-sm ${theme.text}`}>
-              <span className="text-green-500">✓</span>
-              60 queries per month
-            </li>
-            <li className={`flex items-center gap-2 text-sm ${theme.text}`}>
-              <span className="text-green-500">✓</span>
-              Priority AI responses
-            </li>
-            <li className={`flex items-center gap-2 text-sm ${theme.text}`}>
-              <span className="text-green-500">✓</span>
-              Advanced search filters
-            </li>
-          </ul>
-        </div>
-
-        <button
-          onClick={handleUpgrade}
-          className={`w-full py-3 rounded-xl bg-gradient-to-r ${theme.gradient} text-white font-medium text-sm shadow-lg hover:shadow-xl transition-all`}
-        >
-          Upgrade Now
-        </button>
-        <button
-          onClick={() => setShowUpgradeModal(false)}
-          className={`w-full py-2 mt-2 text-sm ${theme.textSecondary}`}
-        >
-          Maybe later
-        </button>
-      </div>
-    </div>
-  )
-
-  // Render current view
-  const renderView = () => {
-    switch (view) {
-      case VIEWS.WELCOME: return <WelcomeView />
-      case VIEWS.AUTH: return <AuthView />
-      case VIEWS.GMAIL_CONNECT: return <GmailConnectView />
-      case VIEWS.CHAT: return <ChatView />
-      case VIEWS.SETTINGS: return <SettingsView />
-      case VIEWS.ACCOUNT: return <AccountView />
-      default: return <WelcomeView />
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.response || "Sorry, I couldn't process that request."
+      }])
+    } catch (err) {
+      console.error('Chat error:', err)
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "Sorry, something went wrong. Please try again."
+      }])
+    } finally {
+      setChatLoading(false)
     }
+  }
+
+  // Determine which view to show
+  // - If in onboarding, stay in onboarding (even if user is set)
+  // - If user is authenticated and not in onboarding, show authenticated
+  // - Otherwise show currentView
+  const effectiveView = currentView === 'onboarding'
+    ? 'onboarding'
+    : user && isOpen
+      ? 'authenticated'
+      : currentView
+
+  const theme = {
+    bg: darkMode ? 'bg-gray-900/95' : 'bg-white',
+    border: darkMode ? 'border-gray-700/50' : 'border-black/[0.06]',
+    text: darkMode ? 'text-gray-100' : 'text-gray-900',
+    textMuted: darkMode ? 'text-gray-400' : 'text-gray-500',
+    gradient: 'from-violet-500 to-blue-500',
+    hover: darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
   }
 
   return (
     <div className={`w-full h-screen ${darkMode ? 'bg-gray-950' : 'bg-gray-100'} relative`}>
-      {/* Launch button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 left-6 z-50 h-12 w-12 rounded-full bg-gradient-to-br ${theme.gradient} text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center`}
-      >
-        <SparkleIcon size={22} />
-      </button>
+      {/* Subtle background pattern for demos */}
+      <div
+        className="absolute inset-0 opacity-[0.4]"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, ${darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.07)'} 1px, transparent 0)`,
+          backgroundSize: '24px 24px'
+        }}
+      />
+
+      {/* Launch button with tooltip */}
+      <div className="group fixed bottom-6 left-6 z-50">
+        <button
+          onClick={() => {
+            setIsOpen(!isOpen)
+            if (isOpen) setCurrentView('welcome') // Reset view when closing
+          }}
+          className={`bubble-glow h-12 w-12 rounded-full bg-gradient-to-br ${theme.gradient} text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center`}
+        >
+          <SparkleIcon size={22} />
+        </button>
+        <span className={`absolute left-14 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-900 text-white'} shadow-lg`}>
+          Open Spotlight
+        </span>
+      </div>
 
       {isOpen && (
         <div
-          className={`fixed right-5 top-5 bottom-5 w-[380px] ${theme.bg} backdrop-blur-xl rounded-2xl shadow-2xl border ${theme.border} flex flex-col overflow-hidden animate-slide-in`}
+          className={`fixed right-5 top-5 bottom-5 w-[400px] ${theme.bg} rounded-[26px] shadow-[0_8px_60px_rgba(0,0,0,0.12),0_0_0_1px_rgba(139,92,246,0.05)] border ${theme.border} flex flex-col overflow-hidden animate-slide-in backdrop-blur-xl`}
         >
+          {/* Soft radial glow behind content */}
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/3 w-[300px] h-[300px] rounded-full pointer-events-none"
+            style={{
+              background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)'
+            }}
+          />
+
           {/* Header */}
-          <div className={`flex items-center justify-between px-5 py-4 border-b ${theme.border}`}>
+          <div
+            className={`flex items-center justify-between px-6 py-4 border-b ${theme.border} animate-fade-up relative z-50`}
+            style={{ animationDelay: '0.1s' }}
+          >
             <div className="flex items-center gap-3">
-              <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white`}>
-                <SparkleIcon size={18} />
+              <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white shadow-sm`}>
+                <SparkleIcon size={20} className="animate-shimmer" />
               </div>
               <div>
-                <h1 className={`text-sm font-semibold ${theme.text}`}>Spotlight</h1>
-                <p className={`text-[10px] ${theme.textMuted} uppercase tracking-wide`}>Email Assistant</p>
+                <h1 className={`text-[15px] font-semibold ${theme.text}`}>Spotlight</h1>
+                <p className={`text-[10px] ${theme.textMuted} uppercase tracking-[0.12em]`}>Email Assistant</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {user && (
+              {effectiveView === 'authenticated' && !showSettings && !legalView && (
                 <>
                   <button
-                    onClick={() => setView(VIEWS.SETTINGS)}
-                    className={`h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover} transition-colors`}
+                    onClick={() => {
+                      setMessages([{ role: 'assistant', content: "How can I help?" }])
+                      setCachedEmails([])
+                      setEmailsLoaded(false)
+                      setGreeting(greetings[Math.floor(Math.random() * greetings.length)])
+                    }}
+                    className={`icon-btn h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover}`}
+                    title="New chat"
                   >
-                    <SettingsIcon />
+                    <PlusIcon />
                   </button>
                   <button
-                    onClick={() => setView(VIEWS.ACCOUNT)}
-                    className={`h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover} transition-colors`}
+                    onClick={() => setShowSettings(true)}
+                    className={`icon-btn h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover}`}
                   >
-                    <UserIcon />
+                    <SettingsIcon />
                   </button>
                 </>
               )}
               <button
-                onClick={() => setIsOpen(false)}
-                className={`h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover} transition-colors`}
+                onClick={() => {
+                  setIsOpen(false)
+                  setCurrentView('welcome')
+                  setShowSettings(false)
+                }}
+                className={`icon-btn h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover}`}
               >
                 <CloseIcon />
               </button>
             </div>
           </div>
 
-          {renderView()}
+          {/* Welcome View */}
+          {effectiveView === 'welcome' && (
+            <>
+              {/* Main Content */}
+              <div className="flex-1 flex flex-col items-center justify-center px-8 py-6 relative z-10">
+                {/* Logo Badge */}
+                <div
+                  className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white mb-6 shadow-lg animate-fade-up`}
+                  style={{ animationDelay: '0.15s' }}
+                >
+                  <SparkleIcon size={26} className="animate-shimmer" />
+                </div>
 
-          {showUpgradeModal && <UpgradeModal />}
+                {/* Headline */}
+                <h2
+                  className={`text-xl font-semibold ${theme.text} text-center mb-2 animate-fade-up`}
+                  style={{ animationDelay: '0.2s' }}
+                >
+                  Find what matters in your inbox.
+                </h2>
+
+                {/* One-liner */}
+                <p
+                  className={`text-sm ${theme.textMuted} text-center mb-6 animate-fade-up`}
+                  style={{ animationDelay: '0.25s' }}
+                >
+                  Due dates, updates, and reminders—fast.
+                </p>
+
+                {/* Mini bullets */}
+                <div
+                  className="space-y-2.5 mb-8 animate-fade-up"
+                  style={{ animationDelay: '0.3s' }}
+                >
+                  {features.map((feature, i) => (
+                    <div key={i} className="flex items-center gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center text-violet-600">
+                        <CheckIcon />
+                      </div>
+                      <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Primary CTA */}
+                <div className="w-full max-w-[280px] animate-fade-up" style={{ animationDelay: '0.35s' }}>
+                  <button
+                    onClick={() => setCurrentView('main')}
+                    className={`w-full py-3.5 rounded-2xl bg-gradient-to-br ${theme.gradient} text-white font-medium text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]`}
+                  >
+                    Get Started
+                  </button>
+                </div>
+              </div>
+
+              {/* Trust line */}
+              <div
+                className={`px-6 py-4 border-t ${theme.border} animate-fade-up relative z-10`}
+                style={{ animationDelay: '0.55s' }}
+              >
+                <p className={`text-[11px] ${theme.textMuted} text-center`}>
+                  Spotlight only accesses what you request. We never sell your data.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Main View - Auth Options */}
+          {effectiveView === 'main' && !legalView && (
+            <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 relative z-10">
+              {/* Icon */}
+              <div
+                className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white mb-6 shadow-lg animate-fade-up`}
+                style={{ animationDelay: '0.1s' }}
+              >
+                <EnvelopeSparkleIcon size={36} />
+              </div>
+
+              {/* Title */}
+              <div className="text-center mb-8 animate-fade-up" style={{ animationDelay: '0.15s' }}>
+                <h2 className={`text-xl font-semibold ${theme.text} mb-2`}>
+                  Connect your inbox
+                </h2>
+                <p className={`text-sm ${theme.textMuted} max-w-[260px]`}>
+                  Sign in with Google to let Spotlight help you manage your emails.
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm animate-fade-up w-full max-w-[280px]">
+                  {error}
+                </div>
+              )}
+
+              {/* Sign in with Google */}
+              <button
+                onClick={handleGoogleSignIn}
+                className="w-full max-w-[280px] py-3.5 px-4 rounded-2xl bg-white border border-gray-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-3 animate-fade-up"
+                style={{ animationDelay: '0.2s' }}
+              >
+                <GoogleIcon />
+                <span className="text-sm font-medium text-gray-700">Continue with Google</span>
+              </button>
+
+              {/* Terms */}
+              <p className={`text-[11px] ${theme.textMuted} text-center mt-6 animate-fade-up`} style={{ animationDelay: '0.25s' }}>
+                By continuing, you agree to our{' '}
+                <button onClick={() => setLegalView('terms')} className="underline hover:text-violet-500">Terms</button>
+                {' '}and{' '}
+                <button onClick={() => setLegalView('privacy')} className="underline hover:text-violet-500">Privacy Policy</button>
+              </p>
+            </div>
+          )}
+
+          {/* Terms of Service View */}
+          {legalView === 'terms' && (
+            <div className="flex-1 flex flex-col min-h-0 relative z-10">
+              {/* Header */}
+              <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b ${theme.border}`}>
+                <button
+                  onClick={() => {
+                    setLegalView(null)
+                    if (legalFromSettings) {
+                      setShowSettings(true)
+                      setLegalFromSettings(false)
+                    }
+                  }}
+                  className={`h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover} transition-colors`}
+                >
+                  <BackIcon />
+                </button>
+                <h2 className={`text-base font-semibold ${theme.text}`}>Terms of Service</h2>
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5">
+                <TermsContent darkMode={darkMode} />
+              </div>
+            </div>
+          )}
+
+          {/* Privacy Policy View */}
+          {legalView === 'privacy' && (
+            <div className="flex-1 flex flex-col min-h-0 relative z-10">
+              {/* Header */}
+              <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b ${theme.border}`}>
+                <button
+                  onClick={() => {
+                    setLegalView(null)
+                    if (legalFromSettings) {
+                      setShowSettings(true)
+                      setLegalFromSettings(false)
+                    }
+                  }}
+                  className={`h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover} transition-colors`}
+                >
+                  <BackIcon />
+                </button>
+                <h2 className={`text-base font-semibold ${theme.text}`}>Privacy Policy</h2>
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5">
+                <PrivacyContent darkMode={darkMode} />
+              </div>
+            </div>
+          )}
+
+          {/* Onboarding View */}
+          {effectiveView === 'onboarding' && (
+            <div className="flex-1 flex flex-col px-6 py-6 relative z-10">
+              {/* Slide Content */}
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div
+                  key={onboardingStep}
+                  className="animate-fade-up"
+                >
+                  <div className="text-5xl mb-6">{onboardingSlides[onboardingStep].icon}</div>
+                  <h2 className={`text-xl font-semibold ${theme.text} mb-3`}>
+                    {onboardingSlides[onboardingStep].title}
+                  </h2>
+                  <p className={`text-sm ${theme.textMuted} leading-relaxed max-w-[280px] mx-auto`}>
+                    {onboardingSlides[onboardingStep].description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Dots */}
+              <div className="flex justify-center gap-2 mb-6">
+                {onboardingSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setOnboardingStep(i)}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      i === onboardingStep
+                        ? `bg-gradient-to-r ${theme.gradient} w-6`
+                        : darkMode ? 'bg-gray-600' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className="flex gap-3">
+                {onboardingStep > 0 && (
+                  <button
+                    onClick={() => setOnboardingStep(onboardingStep - 1)}
+                    className={`flex-1 py-3 rounded-xl border ${theme.border} ${theme.text} text-sm font-medium ${theme.hover} transition-all duration-200`}
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (onboardingStep < onboardingSlides.length - 1) {
+                      setOnboardingStep(onboardingStep + 1)
+                    } else {
+                      setCurrentView('authenticated')
+                    }
+                  }}
+                  className={`flex-1 py-3 rounded-xl bg-gradient-to-br ${theme.gradient} text-white font-medium text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]`}
+                >
+                  {onboardingStep < onboardingSlides.length - 1 ? 'Next' : 'Get Started'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Settings View */}
+          {effectiveView === 'authenticated' && showSettings && (
+            <div className="flex-1 flex flex-col min-h-0 relative z-10">
+              {/* Header */}
+              <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b ${theme.border}`}>
+                <button
+                  onClick={() => {
+                    if (settingsView) {
+                      setSettingsView(null)
+                    } else {
+                      setShowSettings(false)
+                    }
+                  }}
+                  className={`h-8 w-8 rounded-lg flex items-center justify-center ${theme.textMuted} ${theme.hover} transition-colors`}
+                >
+                  <BackIcon />
+                </button>
+                <h2 className={`text-base font-semibold ${theme.text}`}>
+                  {settingsView === 'account' ? 'Account' : 'Settings'}
+                </h2>
+              </div>
+
+              {/* Account Sub-View */}
+              {settingsView === 'account' && (
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+                  {/* Profile Card */}
+                  <div className={`p-4 rounded-2xl border ${theme.border} ${theme.bg}`}>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className={`h-14 w-14 rounded-full bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white text-xl font-semibold`}>
+                        {(user?.user_metadata?.full_name || user?.email)?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-base font-semibold ${theme.text} truncate`}>
+                          {user?.user_metadata?.full_name || 'User'}
+                        </p>
+                        <p className={`text-sm ${theme.textMuted} truncate`}>{user?.email}</p>
+                      </div>
+                    </div>
+                    <div className={`pt-4 border-t ${theme.border} space-y-3`}>
+                      <div className="flex justify-between">
+                        <span className={`text-sm ${theme.textMuted}`}>Sign-in method</span>
+                        <span className={`text-sm ${theme.text} font-medium`}>Google</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={`text-sm ${theme.textMuted}`}>Account status</span>
+                        <span className="text-sm text-green-500 font-medium">Active</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subscription */}
+                  <div>
+                    <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Subscription</p>
+                    <div className={`p-4 rounded-2xl border ${theme.border} ${theme.bg}`}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`h-10 w-10 rounded-full ${darkMode ? 'bg-amber-900/50' : 'bg-amber-100'} flex items-center justify-center text-amber-500`}>
+                          <CrownIcon />
+                        </div>
+                        <div>
+                          <p className={`text-sm font-semibold ${theme.text}`}>Free Plan</p>
+                          <p className={`text-xs ${theme.textMuted}`}>Basic features included</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => alert('Pro upgrade coming soon!')}
+                        className={`w-full py-2.5 rounded-xl bg-gradient-to-br ${theme.gradient} text-white text-sm font-medium hover:opacity-90 transition-opacity`}
+                      >
+                        Upgrade to Pro
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Connected Services */}
+                  <div>
+                    <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Connected Services</p>
+                    <div className="space-y-1">
+                      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${theme.border}`}>
+                        <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-blue-900/50' : 'bg-blue-100'} flex items-center justify-center`}>
+                          <GoogleIcon />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${theme.text}`}>Gmail</p>
+                          <p className={`text-xs ${theme.textMuted}`}>Read access to emails</p>
+                        </div>
+                        <span className={`text-xs text-green-500 font-medium px-2 py-1 ${darkMode ? 'bg-green-900/50' : 'bg-green-50'} rounded-full`}>Connected</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Session Info */}
+                  <div>
+                    <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Session</p>
+                    <div className="space-y-1">
+                      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}>
+                        <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-100'} flex items-center justify-center ${darkMode ? 'text-slate-300' : 'text-slate-500'}`}>
+                          <ClockIcon />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${theme.text}`}>Last Sign-in</p>
+                          <p className={`text-xs ${theme.textMuted}`}>
+                            {user?.last_sign_in_at
+                              ? new Date(user.last_sign_in_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit'
+                                })
+                              : 'Unknown'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Data Management */}
+                  <div>
+                    <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Data Management</p>
+                    <div className="space-y-1">
+                      <button
+                        onClick={handleExportData}
+                        className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                      >
+                        <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-cyan-900/50' : 'bg-cyan-100'} flex items-center justify-center text-cyan-500`}>
+                          <DownloadIcon />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className={`text-sm font-medium ${theme.text}`}>Export Data</p>
+                          <p className={`text-xs ${theme.textMuted}`}>Download a copy of your data</p>
+                        </div>
+                        <ChevronRightIcon />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Danger Zone */}
+                  <div>
+                    <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Danger Zone</p>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          handleSignOut()
+                          setShowSettings(false)
+                          setSettingsView(null)
+                        }}
+                        className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                      >
+                        <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-red-900/50' : 'bg-red-100'} flex items-center justify-center text-red-500`}>
+                          <LogOutIcon />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-red-500">Sign Out</p>
+                          <p className={`text-xs ${theme.textMuted}`}>You'll need to sign in again</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                      >
+                        <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-red-900/50' : 'bg-red-100'} flex items-center justify-center text-red-500`}>
+                          <UserXIcon />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-red-500">Delete Account</p>
+                          <p className={`text-xs ${theme.textMuted}`}>Permanently delete your account and data</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Delete Confirmation Modal */}
+              {showDeleteConfirm && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 rounded-[26px]">
+                  <div className={`${theme.bg} rounded-2xl p-6 mx-4 max-w-[320px] shadow-2xl`}>
+                    <div className="flex items-center justify-center mb-4">
+                      <div className={`h-12 w-12 rounded-full ${darkMode ? 'bg-red-900/50' : 'bg-red-100'} flex items-center justify-center text-red-500`}>
+                        <UserXIcon />
+                      </div>
+                    </div>
+                    <h3 className={`text-lg font-semibold ${theme.text} text-center mb-2`}>Delete Account?</h3>
+                    <p className={`text-sm ${theme.textMuted} text-center mb-6`}>
+                      This action cannot be undone. All your data will be permanently removed.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className={`flex-1 py-2.5 rounded-xl border ${theme.border} ${theme.text} text-sm font-medium ${theme.hover} transition-colors`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteAccount}
+                        className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Settings Content */}
+              {!settingsView && (
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-6">
+                {/* Account Section */}
+                <div>
+                  <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Account</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setSettingsView('account')}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white text-sm font-semibold`}>
+                        {(user?.user_metadata?.full_name || user?.email)?.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-sm font-medium ${theme.text}`}>
+                          {user?.user_metadata?.full_name || 'User'}
+                        </p>
+                        <p className={`text-xs ${theme.textMuted}`}>{user?.email}</p>
+                      </div>
+                      <ChevronRightIcon />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Appearance Section */}
+                <div>
+                  <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Appearance</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setDarkMode(!darkMode)}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-indigo-900' : 'bg-indigo-100'} flex items-center justify-center ${darkMode ? 'text-indigo-300' : 'text-indigo-500'}`}>
+                        <MoonIcon />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-sm font-medium ${theme.text}`}>Dark Mode</p>
+                        <p className={`text-xs ${theme.textMuted}`}>{darkMode ? 'On' : 'Off'}</p>
+                      </div>
+                      <div className={`w-10 h-6 rounded-full transition-colors ${darkMode ? 'bg-violet-500' : 'bg-gray-300'} relative`}>
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${darkMode ? 'right-1' : 'left-1'}`} />
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Notifications Section */}
+                <div>
+                  <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Notifications</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-amber-900/50' : 'bg-amber-100'} flex items-center justify-center text-amber-500`}>
+                        <BellIcon />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-sm font-medium ${theme.text}`}>Push Notifications</p>
+                        <p className={`text-xs ${theme.textMuted}`}>{notificationsEnabled ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <div className={`w-10 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-violet-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'} relative`}>
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${notificationsEnabled ? 'right-1' : 'left-1'}`} />
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Privacy & Data Section */}
+                <div>
+                  <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>Privacy & Data</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setSettingsView('account')}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-green-900/50' : 'bg-green-100'} flex items-center justify-center text-green-500`}>
+                        <ShieldIcon />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-sm font-medium ${theme.text}`}>Connected Accounts</p>
+                        <p className={`text-xs ${theme.textMuted}`}>Gmail</p>
+                      </div>
+                      <ChevronRightIcon />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMessages([{ role: 'assistant', content: "How can I help?" }])
+                        setCachedEmails([])
+                        setEmailsLoaded(false)
+                      }}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-rose-900/50' : 'bg-rose-100'} flex items-center justify-center text-rose-500`}>
+                        <TrashIcon />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-sm font-medium ${theme.text}`}>Clear Chat History</p>
+                        <p className={`text-xs ${theme.textMuted}`}>Delete all conversations</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* About Section */}
+                <div>
+                  <p className={`text-xs font-medium ${theme.textMuted} uppercase tracking-wider px-2 mb-2`}>About</p>
+                  <div className="space-y-1">
+                    <div
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-violet-900/50' : 'bg-violet-100'} flex items-center justify-center text-violet-500`}>
+                        <InfoIcon />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`text-sm font-medium ${theme.text}`}>Version</p>
+                        <p className={`text-xs ${theme.textMuted}`}>1.0.0</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowSettings(false)
+                        setLegalFromSettings(true)
+                        setLegalView('terms')
+                      }}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-blue-900/50' : 'bg-blue-100'} flex items-center justify-center text-blue-500`}>
+                        <FileTextIcon />
+                      </div>
+                      <p className={`text-sm font-medium ${theme.text}`}>Terms of Service</p>
+                      <ChevronRightIcon />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettings(false)
+                        setLegalFromSettings(true)
+                        setLegalView('privacy')
+                      }}
+                      className={`settings-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl ${theme.hover}`}
+                    >
+                      <div className={`h-9 w-9 rounded-full ${darkMode ? 'bg-blue-900/50' : 'bg-blue-100'} flex items-center justify-center text-blue-500`}>
+                        <ShieldIcon />
+                      </div>
+                      <p className={`text-sm font-medium ${theme.text}`}>Privacy Policy</p>
+                      <ChevronRightIcon />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              )}
+            </div>
+          )}
+
+          {/* Authenticated View - Chat Interface */}
+          {effectiveView === 'authenticated' && !showSettings && !legalView && (
+            <div className="flex-1 flex flex-col relative z-10 min-h-0">
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 scroll-fade">
+                {messages.length === 1 && messages[0].role === 'assistant' ? (
+                  // Show greeting when no conversation yet
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-2xl font-semibold text-center bg-gradient-to-r from-violet-500 via-blue-500 to-violet-500 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
+                      {greeting}
+                    </p>
+                  </div>
+                ) : (
+                  // Show messages
+                  <div className="space-y-4">
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-message-in`}
+                        style={{ animationDelay: `${Math.min(index * 50, 200)}ms` }}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                            message.role === 'user'
+                              ? `bg-gradient-to-br ${theme.gradient} text-white shadow-md`
+                              : `${darkMode ? 'bg-gray-800' : 'bg-gray-100'} ${theme.text}`
+                          }`}
+                        >
+                          {message.role === 'user' ? (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                          ) : (
+                            <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-strong:font-semibold">
+                              <ReactMarkdown>{message.content}</ReactMarkdown>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className="flex justify-start animate-message-in">
+                        <div className={`rounded-2xl px-4 py-3 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                          <div className="flex items-center gap-1.5">
+                            <div className="typing-dot w-2 h-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" />
+                            <div className="typing-dot w-2 h-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" />
+                            <div className="typing-dot w-2 h-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Input */}
+              <div className={`flex-shrink-0 px-4 py-3 border-t ${theme.border}`}>
+                <form onSubmit={handleSendMessage} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Ask about your emails..."
+                    className={`input-glow flex-1 py-2.5 px-4 rounded-xl border ${theme.border} ${theme.bg} ${theme.text} text-sm focus:outline-none focus:border-violet-500 transition-all ${darkMode ? 'placeholder:text-gray-500' : 'placeholder:text-gray-400'}`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim() || chatLoading}
+                    className={`send-btn h-10 w-10 rounded-xl bg-gradient-to-br ${theme.gradient} text-white flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <SendIcon />
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
